@@ -1,0 +1,130 @@
+---
+title: "Analísis de hamburgueseria"
+author: "Alejandro Hernández Cerda"
+date: "`r Sys.Date()`"
+output: html_document
+---
+En este documento analizaré ciertos aspectos para un mejor entendimiento de una hamburgeseria.\
+
+Como por ejemplo:\
+
+* La cantidad de carne usada para las hamburgesas
+
+* La cantidad de salsa usada para las mismas, así como que tanta salsa se dede usar dependiendo la carne de las mismas
+
+* Cuales son las mejores o más solicitadas combinaciones de papas y refrescos pedidos al momento de la orden de una hamburgesa
+
+***
+Empezamos importando las librerias:
+```{r Importacion de datos}
+library(dplyr)
+library(ggplot2)
+```
+>Importamos la base de datos:
+
+```{r Lectura de datos}
+setwd("C:\\Users\\Aleja\\OneDrive\\Documentos\\Data para R")
+datos <- read.csv("Hamburgesas.csv")
+head(datos)
+str(datos)
+```
+> Analisis de la variable 'carne' y 'salsa'
+
+```{r Analisis descriptivo}
+summary(datos)
+cat("La desviacion estandar de la carne es de:",sd(datos$Carne)/mean(datos$Carne))
+cat("La desviacion estandar de la salsa es de:",sd(datos$Salsa)/mean(datos$Salsa))
+```
+
+Al ver la funcion *summary* podemos darnos cuenta de 3 cosas:
+
+* De 500 hamburgesas pedidas, el promedio de carne usado en ellas es de 90.03 gr. 
+
+* De 500 hamburgesas pedidas el promedio de salsa usada es de 5.60 gr
+
+* Las desviaciones estandar de tanto la carne como la salsa son casi cercanas a 0, es decir, no varian mucho al momento de hacer una hamburgesa.
+
+Esto se puede observar en mejor medida con un analisis gráfico de las mismas:
+
+```{r Graficas Carne}
+layout(matrix(c(1:2),nrow = 1))
+hist(datos$Carne,breaks=10,main = "Carne usada en las 500 hamburgesas",cex.main=.9, xlab = "Carne",ylab="Frecuencia",col="cyan")
+hist(datos$Salsa,breaks=10,main = "Salsa usada en las 500 hamburgesas",cex.main=.9, xlab = "Salsa",ylab="Frecuencia",col="cyan")
+ggplot(datos,aes(x=Carne,y=Salsa)) +
+        geom_point(size=1.5)+
+        labs(title="Relacion entre carne y salsa",x="Carne",y="Salsa")+
+        geom_smooth(method = 'lm')+
+        theme_minimal()
+```
+
+Podemos ver, como en la gráfica donde se compara la relacion entre la carne y la salsa, esta relacion se puede comprender con una linea recta mediante el método de regresion $y=mx+b$.
+
+Podemos obtener este modelo mediante la funcion $lm()$ de r:
+
+```{r Metodo de linea recta Regresion}
+Regresion_lineal <- lm(Salsa~Carne,datos)
+Resumen_lm <- summary(Regresion_lineal)
+print(Resumen_lm)
+cat("La ecucacion de recta que satisface el modelo lineal de la relacion entre carne y salsa es:",
+    coef(Regresion_lineal)[2],"x",coef(Regresion_lineal)[1],"\n")
+cat("El coeficiente de correlacion de el modelo lineal es:",Resumen_lm$r.squared)
+```
+
+Por lo tanto, de acuerdo a la ecuacion $y= .101x - 3.496$ podemos saber cuanta es la Salsa necesaria para x cantidad de Carne
+
+> Analisis de las variables 'papas' y 'refrescos'
+
+Podemos comprender la naturaleza de la variable *papas* y *refrescos* como los combos que eligen entre si, es decir, que tipo de papas elige al momento de elegir el tipo de refresco.
+
+Es necesario saber que tipo de papas y refrescos existen en el menu:
+
+Por lo tanto, es necesario saber cuales son el numero de combos que elige la clientela en la compra de minimo 500 hamburgesas, para así comprender un poco más cómo es que son las preferencias de los clientes
+```{r}
+unique(datos$Papas)
+unique(datos$Refresco)
+```
+
+```{r Combinaciones Papas-Refrescos}
+datos %>%
+        group_by(Papas,Refresco) %>%
+        summarise(Combinaciones=n(),Probabilidad= n()/nrow(.))%>%
+        arrange(Combinaciones) %>%
+        print()
+```
+Donde podemos ver que la **mayor** cantidad de combinaciones elegidas entre papas y refrescos fue: *Papas Medianas y Refresco Mediano* con 134 pedidos y una probabilidad de .268, así como la **menor** de las combinaciones elegida fue: *Papas Chicas y Refresco Grande* con 16 pedidos y una probabilidad de .032.
+
+Esto como negocio nos puede ayudar a saber la cantidad de ganancias obtenidas al momento de un fin de mes, o si queremos saber una estimacion de cuanto vamos ganando durante el dia.
+
+Para una mejor visualizacion procederé a crear un histograma con los datos anteriormente mencionados:
+```{r Visualizacion Combinaciones}
+Combinaciones_PR <- datos %>%
+        count(Papas,Refresco) %>%
+        print()
+ggplot(Combinaciones_PR,aes(x=paste(Papas,Refresco),y=n,fill=paste(Papas,Refresco)))+
+        labs(title = "Frecuencia Combos Papas-Refresco",x="Combinaciones",y="Frecuencia")+
+        geom_bar(stat = "identity",color="black")+
+        scale_fill_discrete(name = "Combinaciones") +
+        theme_minimal()+
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Con todos los datos anterior mente mencionados podemos plantearnos unos escenarios al momento de que nuestro cliente eliga $X$ combinacion de papas y refresco, por ejemplo:
+
+*¿Qué probabilidad hay de que elija papás medianas?*
+```{r}
+datos %>% filter(Papas=="Medianas") %>% summarise(Probabilidad=n()/nrow(datos)) %>% print()
+```
+
+*¿Que probabilidad hay de que elija papas medianas o refresco chico?*
+```{r}
+datos %>% filter(Papas=="Medianas"|Refresco=="Chico") %>% summarise(Probabilidad=n()/nrow(datos)) %>% print()
+```
+
+O algo más complicado:
+*¿Qué probabilidad hay de que elija refresco chico si ya eligio papas grandes?*
+```{r}
+datos %>% summarise(Probabilidad = sum(Papas=="Grandes" & Refresco=="Chico")/sum(Papas=="Grandes")) %>% print()
+```
+
+
+
